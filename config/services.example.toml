@@ -1,0 +1,12 @@
+[services.example_compose]
+name = "Example Compose App"
+type = "docker_compose"
+enabled = false
+project_dir = "/srv/projects/example"
+compose_file = "/srv/projects/example/docker-compose.yml"
+
+[services.example_systemd]
+name = "Example systemd Service"
+type = "systemd"
+enabled = false
+unit = "example.service"

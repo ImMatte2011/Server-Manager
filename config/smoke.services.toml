@@ -1,0 +1,12 @@
+[services.smoke_compose]
+name = "Smoke Compose"
+type = "docker_compose"
+enabled = true
+project_dir = "C:/Users/AlesMatte/Server-Manager/config"
+compose_file = "C:/Users/AlesMatte/Server-Manager/config/smoke-compose.yml"
+
+[services.smoke_systemd_disabled]
+name = "Smoke systemd disabled"
+type = "systemd"
+enabled = false
+unit = "smoke-test.service"
