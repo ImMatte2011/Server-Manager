@@ -13,15 +13,24 @@ class DockerComposeProvider(Provider):
 
     def start(self, service: ServiceConfig) -> OperationResult:
         self._compose(service, ["up", "-d"])
-        return OperationResult(service.service_id, Operation.START, True, ServiceState.RUNNING, "Started.")
+        status = self.status(service)
+        return OperationResult(service.service_id, Operation.START, True, status.state, "Start command completed.")
 
     def stop(self, service: ServiceConfig) -> OperationResult:
         self._compose(service, ["down"])
-        return OperationResult(service.service_id, Operation.STOP, True, ServiceState.STOPPED, "Stopped.")
+        status = self.status(service)
+        return OperationResult(service.service_id, Operation.STOP, True, status.state, "Stop command completed.")
 
     def restart(self, service: ServiceConfig) -> OperationResult:
         self._compose(service, ["restart"])
-        return OperationResult(service.service_id, Operation.RESTART, True, ServiceState.RUNNING, "Restarted.")
+        status = self.status(service)
+        return OperationResult(
+            service.service_id,
+            Operation.RESTART,
+            True,
+            status.state,
+            "Restart command completed.",
+        )
 
     def status(self, service: ServiceConfig) -> ServiceStatus:
         try:
@@ -64,18 +73,31 @@ class DockerComposeProvider(Provider):
         except ImportError as exc:
             raise ProviderCommandError("Docker SDK is not installed.") from exc
 
-        client = docker.from_env()
+        try:
+            client = docker.from_env()
+        except Exception as exc:
+            raise ProviderCommandError("Docker provider is not available.") from exc
         project_dir = str(service.project_dir) if service.project_dir else None
         compose_file = str(service.compose_file) if service.compose_file else None
-        containers = client.containers.list(all=True)
+        project_name = _compose_project_name(service)
+        try:
+            containers = client.containers.list(
+                all=True,
+                filters={"label": f"com.docker.compose.project={project_name}"},
+            )
+        except Exception as exc:
+            raise ProviderCommandError("Docker provider could not list containers.") from exc
         matched = []
         memory_total = 0
         cpu_total = 0.0
         for container in containers:
             labels = container.labels or {}
-            if not _matches_compose_container(labels, project_dir, compose_file):
+            if not _matches_compose_container(labels, project_name, project_dir, compose_file):
                 continue
-            stats = container.stats(stream=False)
+            try:
+                stats = container.stats(stream=False)
+            except Exception:
+                continue
             memory = int(stats.get("memory_stats", {}).get("usage") or 0)
             cpu = _docker_cpu_percent(stats)
             memory_total += memory
@@ -115,7 +137,30 @@ def _parse_compose_ps(stdout: str) -> list[dict]:
     return containers
 
 
-def _matches_compose_container(labels: dict[str, str], project_dir: str | None, compose_file: str | None) -> bool:
+def _compose_project_name(service: ServiceConfig) -> str:
+    if service.compose_project_name:
+        return service.compose_project_name
+    if service.project_dir:
+        return _normalize_compose_project_name(service.project_dir.name)
+    if service.compose_file:
+        return _normalize_compose_project_name(service.compose_file.parent.name)
+    return service.service_id
+
+
+def _normalize_compose_project_name(name: str) -> str:
+    normalized = "".join(char.lower() if char.isalnum() else "_" for char in name)
+    normalized = normalized.strip("_")
+    return normalized or "default"
+
+
+def _matches_compose_container(
+    labels: dict[str, str],
+    project_name: str,
+    project_dir: str | None,
+    compose_file: str | None,
+) -> bool:
+    if labels.get("com.docker.compose.project") != project_name:
+        return False
     working_dir = labels.get("com.docker.compose.project.working_dir")
     config_files = labels.get("com.docker.compose.project.config_files", "")
     if project_dir and working_dir == project_dir:

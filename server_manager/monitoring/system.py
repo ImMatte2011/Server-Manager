@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 import psutil
@@ -13,6 +14,8 @@ def system_resources(path: str = "/") -> dict:
     return {
         "cpu_percent": psutil.cpu_percent(interval=0.1),
         "load_average": load_average,
+        "boot_time": psutil.boot_time(),
+        "uptime_seconds": max(0, int(time.time() - psutil.boot_time())),
         "memory": {
             "total_bytes": virtual_memory.total,
             "used_bytes": virtual_memory.used,
@@ -29,6 +32,12 @@ def system_resources(path: str = "/") -> dict:
             "used_bytes": disk.used,
             "free_bytes": disk.free,
             "percent": disk.percent,
+        },
+        "swap": {
+            "total_bytes": psutil.swap_memory().total,
+            "used_bytes": psutil.swap_memory().used,
+            "free_bytes": psutil.swap_memory().free,
+            "percent": psutil.swap_memory().percent,
         },
         "temperature_celsius": _temperature(),
     }

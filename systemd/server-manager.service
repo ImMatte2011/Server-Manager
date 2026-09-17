@@ -1,0 +1,29 @@
+[Unit]
+Description=Server Manager API
+Documentation=file:/opt/server-manager/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=server-manager
+Group=server-manager
+WorkingDirectory=/opt/server-manager
+EnvironmentFile=/etc/server-manager/server-manager.env
+ExecStart=/opt/server-manager/.venv/bin/python -m uvicorn server_manager.api.main:app --host ${SERVER_MANAGER_HOST} --port ${SERVER_MANAGER_PORT}
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=20s
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/server-manager
+ReadOnlyPaths=/etc/server-manager /opt/server-manager
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target

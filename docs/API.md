@@ -36,9 +36,27 @@ POST /api/services/{service_id}/restart
 GET  /api/system/resources
 GET  /api/resources/summary
 
+GET    /api/schedules
+POST   /api/schedules
+DELETE /api/schedules/{schedule_id}
+
 GET  /api/audit
 POST /api/registry/reload
 ```
+
+Schedule creation body:
+
+```json
+{
+  "service_id": "example",
+  "operation": "start",
+  "kind": "daily",
+  "hour": 8,
+  "minute": 0
+}
+```
+
+Weekly schedules use `kind = "weekly"` and `weekdays`, for example `["mon", "fri"]`.
 
 Errors are returned as structured JSON:
 

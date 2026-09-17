@@ -1,28 +1,30 @@
 # Server Manager
 
-Server Manager is an API-first Raspberry Pi service manager. It controls registered services from the outside, without requiring managed projects to import Server Manager code or expose custom APIs.
+Server Manager is an API-first Raspberry Pi service manager. It controls registered Docker Compose and systemd services from the outside, without requiring managed projects to import Server Manager code or expose custom APIs.
 
-This first implementation covers the foundation through Phase 8:
+Implemented scope:
 
-- resilient service registry;
-- Docker Compose and systemd provider architecture;
-- normalized service status;
-- capabilities per service;
-- protected FastAPI endpoints;
+- resilient TOML service registry;
+- Docker Compose and systemd providers;
+- normalized service status and capabilities;
+- protected FastAPI API;
 - lightweight CLI client;
-- system resource monitoring;
-- SQLite audit log.
+- system and per-service monitoring where available;
+- persistent scheduling with APScheduler + SQLite;
+- structured SQLite audit log;
+- Raspberry Pi systemd deployment files.
 
-It intentionally does not include a frontend yet.
+It intentionally does not include a web frontend yet.
 
-## Run Locally
+## Local Development
 
 ```bash
 python -m venv .venv
 . .venv/bin/activate
 pip install -e ".[dev]"
 cp config/services.example.toml config/services.toml
-export SERVER_MANAGER_API_TOKEN="change-me"
+export SERVER_MANAGER_ENV=development
+export SERVER_MANAGER_API_TOKEN="change-me-for-dev"
 export SERVER_MANAGER_CONFIG="./config/services.toml"
 uvicorn server_manager.api.main:app --host 127.0.0.1 --port 8080
 ```
@@ -34,10 +36,13 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 Copy-Item config\services.example.toml config\services.toml
-$env:SERVER_MANAGER_API_TOKEN = "change-me"
+$env:SERVER_MANAGER_ENV = "development"
+$env:SERVER_MANAGER_API_TOKEN = "change-me-for-dev"
 $env:SERVER_MANAGER_CONFIG = ".\config\services.toml"
 uvicorn server_manager.api.main:app --host 127.0.0.1 --port 8080
 ```
+
+In production, `SERVER_MANAGER_API_TOKEN` is required. Missing authentication fails closed.
 
 ## CLI
 
@@ -48,14 +53,34 @@ server-manager start example
 server-manager stop example
 server-manager restart example
 server-manager resources
+server-manager schedules
+server-manager schedule-add example start daily 08:00
+server-manager schedule-delete <schedule-id>
 ```
 
 Use:
 
 ```bash
 export SERVER_MANAGER_URL="http://127.0.0.1:8080"
-export SERVER_MANAGER_API_TOKEN="change-me"
+export SERVER_MANAGER_API_TOKEN="your-token"
 ```
+
+## Raspberry Pi Layout
+
+Recommended production layout:
+
+```text
+/opt/server-manager/        application + virtualenv
+/etc/server-manager/        services.toml and environment
+/var/lib/server-manager/    SQLite database and runtime data
+```
+
+Install files are provided in:
+
+- `systemd/server-manager.service`
+- `systemd/server-manager.env.example`
+- `systemd/sudoers.example`
+- `scripts/install_rpi.sh`
 
 ## Safety Model
 
@@ -76,4 +101,11 @@ HTTP input
   -> systemctl <input>
 ```
 
-systemd units and Docker Compose paths are loaded from the registry. The API only accepts service IDs.
+systemd units and Docker Compose paths are loaded from the registry. The API only accepts service IDs that pass validation and exist in the registry.
+
+## Tests
+
+```bash
+python -m compileall server_manager tests
+python -m pytest -q
+```

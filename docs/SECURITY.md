@@ -24,6 +24,8 @@ Allowed operations are constrained to registered services:
 
 Docker Compose commands are built from the registered `compose_file`. systemd commands are built from the registered `unit`.
 
+In production, authentication fails closed when `SERVER_MANAGER_API_TOKEN` is missing or too short. Development/test environments may run without a token to simplify local work.
+
 ## sudoers
 
 If systemd operations need sudo, use a narrow sudoers rule. The exact production rule depends on the final install path and unit list, but it should never allow arbitrary shell execution.
@@ -43,3 +45,7 @@ This is intentionally repetitive. It is safer than allowing broad patterns.
 ## Docker Permission Warning
 
 Membership in the `docker` group is effectively root-equivalent on Linux. If Server Manager needs Docker control, treat the Server Manager user as highly privileged.
+
+## Logs
+
+Application logs use Python logging and are suitable for journald when running under systemd. Audit events are stored separately in SQLite and should not contain tokens or environment secrets.

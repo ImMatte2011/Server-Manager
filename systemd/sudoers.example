@@ -1,0 +1,8 @@
+# Install with visudo after replacing units with the exact allowed unit names.
+# Keep this file narrow. Do not allow arbitrary systemctl commands.
+#
+# server-manager ALL=(root) NOPASSWD: /usr/bin/systemctl start example.service
+# server-manager ALL=(root) NOPASSWD: /usr/bin/systemctl stop example.service
+# server-manager ALL=(root) NOPASSWD: /usr/bin/systemctl restart example.service
+# server-manager ALL=(root) NOPASSWD: /usr/bin/systemctl is-active example.service
+# server-manager ALL=(root) NOPASSWD: /usr/bin/systemctl show example.service --property=MainPID --value

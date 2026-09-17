@@ -16,6 +16,8 @@ from server_manager.models import (
 
 SERVICE_ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$")
 SYSTEMD_UNIT_RE = re.compile(r"^[a-zA-Z0-9:_.@-]+\.(service|timer|socket|target)$")
+COMPOSE_PROJECT_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
+SUPPORTED_SCHEMA_VERSION = 1
 
 
 class ServiceRegistry:
@@ -40,6 +42,21 @@ def load_registry(config_path: Path) -> dict[str, ServiceRecord]:
 
     with config_path.open("rb") as handle:
         data = tomllib.load(handle)
+
+    schema_version = data.get("schema_version", SUPPORTED_SCHEMA_VERSION)
+    if schema_version != SUPPORTED_SCHEMA_VERSION:
+        return {
+            "__registry__": ServiceRecord(
+                service_id="__registry__",
+                name="Registry",
+                type=None,
+                enabled=False,
+                config_status=ConfigStatus.INVALID,
+                availability=Availability.UNAVAILABLE,
+                capabilities=Capabilities(),
+                errors=(f"Unsupported schema_version '{schema_version}'.",),
+            )
+        }
 
     services = data.get("services", {})
     if not isinstance(services, dict):
@@ -75,7 +92,12 @@ def _parse_service(service_id: str, raw: Any) -> ServiceRecord:
         return _invalid_record(service_id, "Unnamed service", True, errors + ["Service must be a table."])
 
     name = _read_str(raw, "name") or service_id
-    enabled = bool(raw.get("enabled", True))
+    enabled_value = raw.get("enabled", True)
+    if not isinstance(enabled_value, bool):
+        errors.append("'enabled' must be a boolean.")
+        enabled = True
+    else:
+        enabled = enabled_value
     type_value = _read_str(raw, "type")
     if not type_value:
         return _invalid_record(service_id, name, enabled, errors + ["Missing required field 'type'."])
@@ -120,6 +142,11 @@ def _build_config(
             errors.append("'project_dir' must be an absolute path when provided.")
         if compose_file is not None and not compose_file.is_absolute():
             errors.append("'compose_file' must be an absolute path.")
+        compose_project_name = _read_str(raw, "compose_project_name")
+        if compose_project_name and not COMPOSE_PROJECT_RE.match(compose_project_name):
+            errors.append(
+                "'compose_project_name' must contain lowercase letters, numbers, underscores or dashes."
+            )
         if errors:
             return None
         return ServiceConfig(
@@ -129,6 +156,7 @@ def _build_config(
             enabled=enabled,
             project_dir=project_dir or compose_file.parent,
             compose_file=compose_file,
+            compose_project_name=compose_project_name,
             raw=raw,
         )
 

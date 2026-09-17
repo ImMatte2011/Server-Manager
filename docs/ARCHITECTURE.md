@@ -24,6 +24,8 @@ The registry loader separates:
 
 A service with a missing Compose file can still be loaded as valid but unavailable. This prevents one bad path from breaking the entire registry.
 
+The registry supports `schema_version = 1`. Unknown schema versions invalidate the registry instead of guessing.
+
 ## Provider Model
 
 Providers implement:
@@ -47,6 +49,18 @@ resources
 ```
 
 The API checks capabilities before dispatching an operation.
+
+After start, stop and restart, providers read the real service status where possible and return that state in the operation result.
+
+## Monitoring
+
+System monitoring uses `psutil` for CPU, RAM, swap, disk, boot time and uptime. Docker Compose resources are matched through Compose labels using the configured or derived project name plus registry paths. systemd resources are estimated from MainPID and children.
+
+The memory summary distinguishes monitored service memory from unattributed used memory. Unattributed memory is not described as free memory.
+
+## Scheduling
+
+Scheduling uses APScheduler in-process and SQLite persistence through Server Manager's database. Schedules currently support daily and weekly start, stop and restart operations. Missed-job recovery is intentionally not implemented yet.
 
 ## systemd Safety Rule
 

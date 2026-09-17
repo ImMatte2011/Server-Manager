@@ -1,9 +1,13 @@
+schema_version = 1
+
 [services.example_compose]
 name = "Example Compose App"
 type = "docker_compose"
 enabled = false
 project_dir = "/srv/projects/example"
 compose_file = "/srv/projects/example/docker-compose.yml"
+# Optional but recommended when more than one Compose project may share a directory name.
+# compose_project_name = "example"
 
 [services.example_systemd]
 name = "Example systemd Service"

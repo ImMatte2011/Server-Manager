@@ -28,6 +28,17 @@ def main(argv: list[str] | None = None) -> int:
 
     subparsers.add_parser("resources")
     subparsers.add_parser("audit")
+    subparsers.add_parser("schedules")
+
+    schedule_add = subparsers.add_parser("schedule-add")
+    schedule_add.add_argument("service_id")
+    schedule_add.add_argument("operation", choices=["start", "stop", "restart"])
+    schedule_add.add_argument("kind", choices=["daily", "weekly"])
+    schedule_add.add_argument("time", help="HH:MM")
+    schedule_add.add_argument("--weekday", action="append", default=[])
+
+    schedule_delete = subparsers.add_parser("schedule-delete")
+    schedule_delete.add_argument("schedule_id")
 
     for command in ("start", "stop", "restart"):
         operation_parser = subparsers.add_parser(command)
@@ -58,6 +69,36 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "audit":
             payload = _request(args.url, args.token, "GET", "/api/audit")
             _print_json(payload)
+        elif args.command == "schedules":
+            payload = _request(args.url, args.token, "GET", "/api/schedules")
+            _print_json(payload)
+        elif args.command == "schedule-add":
+            hour, minute = _parse_time(args.time)
+            payload = _request(
+                args.url,
+                args.token,
+                "POST",
+                "/api/schedules",
+                body={
+                    "service_id": args.service_id,
+                    "operation": args.operation,
+                    "kind": args.kind,
+                    "hour": hour,
+                    "minute": minute,
+                    "weekdays": args.weekday,
+                },
+                source="CLI",
+            )
+            _print_json(payload)
+        elif args.command == "schedule-delete":
+            payload = _request(
+                args.url,
+                args.token,
+                "DELETE",
+                f"/api/schedules/{args.schedule_id}",
+                source="CLI",
+            )
+            _print_json(payload)
     except urllib.error.HTTPError as exc:
         _print_http_error(exc)
         return 1
@@ -75,8 +116,13 @@ def _request(
     path: str,
     *,
     source: str | None = None,
+    body: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     headers = {"Accept": "application/json"}
+    data = None
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+        data = json.dumps(body).encode("utf-8")
     if token:
         headers["Authorization"] = f"Bearer {token}"
     if source:
@@ -85,6 +131,7 @@ def _request(
         base_url.rstrip("/") + path,
         method=method,
         headers=headers,
+        data=data,
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         return json.loads(response.read().decode("utf-8"))
@@ -113,6 +160,18 @@ def _print_http_error(exc: urllib.error.HTTPError) -> None:
         print(f"HTTP {exc.code}: {body}", file=sys.stderr)
         return
     print(json.dumps(payload, indent=2, sort_keys=True), file=sys.stderr)
+
+
+def _parse_time(value: str) -> tuple[int, int]:
+    try:
+        hour_text, minute_text = value.split(":", 1)
+        hour = int(hour_text)
+        minute = int(minute_text)
+    except ValueError as exc:
+        raise SystemExit("Time must use HH:MM format.") from exc
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        raise SystemExit("Time must be between 00:00 and 23:59.")
+    return hour, minute
 
 
 if __name__ == "__main__":

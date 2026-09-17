@@ -74,6 +74,51 @@ unit = "good.service"
             self.assertEqual(records["bad_unit"].config_status, ConfigStatus.INVALID)
             self.assertEqual(records["good_unit"].config_status, ConfigStatus.VALID)
 
+    def test_unsupported_schema_version_invalidates_registry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            tmp_path = Path(directory)
+            config = tmp_path / "services.toml"
+            config.write_text(
+                """
+schema_version = 999
+
+[services.good_unit]
+name = "Good Unit"
+type = "systemd"
+unit = "good.service"
+""",
+                encoding="utf-8",
+            )
+
+            records = load_registry(config)
+
+            self.assertEqual(records["__registry__"].config_status, ConfigStatus.INVALID)
+
+    def test_invalid_enabled_type_is_isolated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            tmp_path = Path(directory)
+            config = tmp_path / "services.toml"
+            config.write_text(
+                """
+[services.bad]
+name = "Bad"
+type = "systemd"
+enabled = "yes"
+unit = "bad.service"
+
+[services.good]
+name = "Good"
+type = "systemd"
+unit = "good.service"
+""",
+                encoding="utf-8",
+            )
+
+            records = load_registry(config)
+
+            self.assertEqual(records["bad"].config_status, ConfigStatus.INVALID)
+            self.assertEqual(records["good"].config_status, ConfigStatus.VALID)
+
 
 if __name__ == "__main__":
     unittest.main()

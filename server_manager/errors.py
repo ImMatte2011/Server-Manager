@@ -39,3 +39,18 @@ class ProviderCommandError(ServerManagerError):
 class ProviderUnavailableError(ServerManagerError):
     code = "provider_unavailable"
     status_code = 503
+
+
+class AuthenticationNotConfiguredError(ServerManagerError):
+    code = "authentication_not_configured"
+    status_code = 503
+
+
+class InvalidRequestError(ServerManagerError):
+    code = "invalid_request"
+    status_code = 422
+
+
+class ScheduleNotFoundError(ServerManagerError):
+    code = "schedule_not_found"
+    status_code = 404

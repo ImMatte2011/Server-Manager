@@ -18,12 +18,32 @@ unit = "disabled.service"
         encoding="utf-8",
     )
     monkeypatch.setenv("SERVER_MANAGER_API_TOKEN", "test-token")
+    monkeypatch.setenv("SERVER_MANAGER_ENV", "test")
     monkeypatch.setenv("SERVER_MANAGER_CONFIG", str(config))
     monkeypatch.setenv("SERVER_MANAGER_DB", str(tmp_path / "audit.db"))
 
     import server_manager.api.main as api_main
 
     return importlib.reload(api_main)
+
+
+def test_auth_fails_closed_in_production_without_token(monkeypatch, tmp_path):
+    config = tmp_path / "services.toml"
+    config.write_text("", encoding="utf-8")
+    monkeypatch.setenv("SERVER_MANAGER_ENV", "production")
+    monkeypatch.delenv("SERVER_MANAGER_API_TOKEN", raising=False)
+    monkeypatch.setenv("SERVER_MANAGER_CONFIG", str(config))
+    monkeypatch.setenv("SERVER_MANAGER_DB", str(tmp_path / "audit.db"))
+
+    import server_manager.api.main as api_main
+
+    api_main = importlib.reload(api_main)
+    client = TestClient(api_main.app)
+
+    response = client.get("/api/services")
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "authentication_not_configured"
 
 
 def test_protected_endpoints_require_valid_token(monkeypatch, tmp_path):
@@ -57,10 +77,12 @@ def test_unknown_and_malicious_service_ids_do_not_dispatch(monkeypatch, tmp_path
 
     for service_id in ("missing", "..%2F..%2Fsystem", "disabled;reboot", "$(reboot)"):
         response = client.post(f"/api/services/{service_id}/start", headers=headers)
-        assert response.status_code in {404, 405}
+        assert response.status_code in {404, 405, 422}
         body = response.json()
         if response.status_code == 404 and "error" in body:
             assert body["error"]["code"] == "service_not_found"
+        if response.status_code == 422:
+            assert body["error"]["code"] == "invalid_request"
 
 
 def test_audit_records_source_without_token(monkeypatch, tmp_path):
@@ -160,3 +182,69 @@ def test_provider_command_error_is_structured_and_sanitized(monkeypatch, tmp_pat
     assert "systemctl" not in str(body)
     assert "docker compose" not in str(body)
     assert "test-token" not in str(body)
+
+
+def test_api_rejects_invalid_service_id_before_controller(monkeypatch, tmp_path):
+    api_main = _load_app(monkeypatch, tmp_path)
+    client = TestClient(api_main.app)
+    headers = {"Authorization": "Bearer test-token"}
+
+    response = client.post("/api/services/bad;id/start", headers=headers)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_request"
+
+
+def test_schedule_api_create_list_delete(monkeypatch, tmp_path):
+    api_main = _load_app(monkeypatch, tmp_path)
+    client = TestClient(api_main.app)
+    headers = {"Authorization": "Bearer test-token"}
+
+    response = client.post(
+        "/api/schedules",
+        headers=headers,
+        json={
+            "service_id": "disabled",
+            "operation": "start",
+            "kind": "daily",
+            "hour": 8,
+            "minute": 30,
+        },
+    )
+
+    assert response.status_code == 200
+    schedule = response.json()["schedule"]
+    assert schedule["service_id"] == "disabled"
+
+    response = client.get("/api/schedules", headers=headers)
+    assert response.status_code == 200
+    assert len(response.json()["schedules"]) == 1
+
+    response = client.delete(f"/api/schedules/{schedule['id']}", headers=headers)
+    assert response.status_code == 200
+
+    response = client.get("/api/schedules", headers=headers)
+    assert response.json()["schedules"] == []
+
+
+def test_schedule_api_validation(monkeypatch, tmp_path):
+    api_main = _load_app(monkeypatch, tmp_path)
+    client = TestClient(api_main.app)
+    headers = {"Authorization": "Bearer test-token"}
+
+    response = client.post(
+        "/api/schedules",
+        headers=headers,
+        json={
+            "service_id": "disabled",
+            "operation": "resources",
+            "kind": "daily",
+            "hour": 99,
+            "minute": 0,
+        },
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error"]["code"] == "invalid_request"
+    assert "Traceback" not in str(body)

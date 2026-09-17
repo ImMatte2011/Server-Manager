@@ -51,6 +51,21 @@ class AuditSource(StrEnum):
     SCHEDULED_JOB = "scheduled job"
 
 
+class ScheduleKind(StrEnum):
+    DAILY = "daily"
+    WEEKLY = "weekly"
+
+
+class Weekday(StrEnum):
+    MON = "mon"
+    TUE = "tue"
+    WED = "wed"
+    THU = "thu"
+    FRI = "fri"
+    SAT = "sat"
+    SUN = "sun"
+
+
 @dataclass(frozen=True)
 class Capabilities:
     start: bool = False
@@ -74,6 +89,7 @@ class ServiceConfig:
     enabled: bool = True
     project_dir: Path | None = None
     compose_file: Path | None = None
+    compose_project_name: str | None = None
     unit: str | None = None
     raw: dict[str, Any] = field(default_factory=dict)
 
@@ -150,4 +166,28 @@ class OperationResult:
             "success": self.success,
             "state": self.state.value if self.state else None,
             "message": self.message,
+        }
+
+
+@dataclass(frozen=True)
+class ScheduleRecord:
+    schedule_id: str
+    service_id: str
+    operation: Operation
+    kind: ScheduleKind
+    hour: int
+    minute: int
+    enabled: bool = True
+    weekdays: tuple[Weekday, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.schedule_id,
+            "service_id": self.service_id,
+            "operation": self.operation.value,
+            "kind": self.kind.value,
+            "hour": self.hour,
+            "minute": self.minute,
+            "enabled": self.enabled,
+            "weekdays": [day.value for day in self.weekdays],
         }

@@ -12,15 +12,24 @@ class SystemdProvider(Provider):
 
     def start(self, service: ServiceConfig) -> OperationResult:
         run_checked(self._systemctl(service, "start"))
-        return OperationResult(service.service_id, Operation.START, True, ServiceState.RUNNING, "Started.")
+        status = self.status(service)
+        return OperationResult(service.service_id, Operation.START, True, status.state, "Start command completed.")
 
     def stop(self, service: ServiceConfig) -> OperationResult:
         run_checked(self._systemctl(service, "stop"))
-        return OperationResult(service.service_id, Operation.STOP, True, ServiceState.STOPPED, "Stopped.")
+        status = self.status(service)
+        return OperationResult(service.service_id, Operation.STOP, True, status.state, "Stop command completed.")
 
     def restart(self, service: ServiceConfig) -> OperationResult:
         run_checked(self._systemctl(service, "restart"))
-        return OperationResult(service.service_id, Operation.RESTART, True, ServiceState.RUNNING, "Restarted.")
+        status = self.status(service)
+        return OperationResult(
+            service.service_id,
+            Operation.RESTART,
+            True,
+            status.state,
+            "Restart command completed.",
+        )
 
     def status(self, service: ServiceConfig) -> ServiceStatus:
         output = run_command(self._systemctl(service, "is-active"), timeout=15)
