@@ -35,6 +35,6 @@ sudo nano /etc/server-manager/services.toml
 sudo systemctl enable --now server-manager.service
 ```
 
-Server Manager should run as the dedicated `server-manager` Linux user, not as root.
+Server Manager should run as the dedicated `server-manager` Linux user, not as root. The application under `/opt` remains root-owned and read-only to the service. The environment file is `root:server-manager` with mode `0640`; it is readable by the service account's group but not by other local users. Runtime data remains writable under `/var/lib/server-manager`.
 
 For Docker management, add the user to the Docker group only if needed and accept that this is highly privileged. For systemd management, prefer exact sudoers lines for each allowed unit and operation.

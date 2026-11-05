@@ -40,43 +40,39 @@ def load_registry(config_path: Path) -> dict[str, ServiceRecord]:
     if not config_path.exists():
         return {}
 
-    with config_path.open("rb") as handle:
-        data = tomllib.load(handle)
+    try:
+        with config_path.open("rb") as handle:
+            data = tomllib.load(handle)
+    except (OSError, tomllib.TOMLDecodeError):
+        return _registry_error_record("Registry TOML could not be read or parsed.")
 
     schema_version = data.get("schema_version", SUPPORTED_SCHEMA_VERSION)
-    if schema_version != SUPPORTED_SCHEMA_VERSION:
-        return {
-            "__registry__": ServiceRecord(
-                service_id="__registry__",
-                name="Registry",
-                type=None,
-                enabled=False,
-                config_status=ConfigStatus.INVALID,
-                availability=Availability.UNAVAILABLE,
-                capabilities=Capabilities(),
-                errors=(f"Unsupported schema_version '{schema_version}'.",),
-            )
-        }
+    if type(schema_version) is not int or schema_version != SUPPORTED_SCHEMA_VERSION:
+        return _registry_error_record("Unsupported registry schema_version.")
 
     services = data.get("services", {})
     if not isinstance(services, dict):
-        return {
-            "__registry__": ServiceRecord(
-                service_id="__registry__",
-                name="Registry",
-                type=None,
-                enabled=False,
-                config_status=ConfigStatus.INVALID,
-                availability=Availability.UNAVAILABLE,
-                capabilities=Capabilities(),
-                errors=("Top-level 'services' must be a table.",),
-            )
-        }
+        return _registry_error_record("Top-level 'services' must be a table.")
 
     records: dict[str, ServiceRecord] = {}
     for service_id, raw in services.items():
         records[service_id] = _parse_service(service_id, raw)
     return records
+
+
+def _registry_error_record(message: str) -> dict[str, ServiceRecord]:
+    return {
+        "__registry__": ServiceRecord(
+            service_id="__registry__",
+            name="Registry",
+            type=None,
+            enabled=False,
+            config_status=ConfigStatus.INVALID,
+            availability=Availability.UNAVAILABLE,
+            capabilities=Capabilities(),
+            errors=(message,),
+        )
+    }
 
 
 def _parse_service(service_id: str, raw: Any) -> ServiceRecord:

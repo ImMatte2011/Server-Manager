@@ -92,3 +92,64 @@ def test_schedule_run_records_audit(tmp_path: Path):
     assert event.source.value == "scheduled job"
     assert event.action == "start"
     assert event.success is True
+
+
+def test_schedule_failure_audit_does_not_store_exception_details(tmp_path: Path):
+    store = ScheduleStore(tmp_path / "server-manager.db")
+    audit = AuditLog(tmp_path / "server-manager.db")
+    controller = ServiceController(
+        _registry(tmp_path),
+        providers={ServiceType.SYSTEMD: FakeProvider()},
+    )
+    service = ScheduleService(store, controller, audit, "tester")
+    record = service.create(
+        service_id="safe",
+        operation=Operation.START,
+        kind=ScheduleKind.DAILY,
+        hour=8,
+        minute=0,
+    )
+
+    def fail(_service_id: str):
+        raise RuntimeError("sensitive-token-that-must-not-be-audited")
+
+    controller.start = fail
+    service._run_schedule(record)
+
+    event = audit.list_recent(1)[0]
+    assert event.success is False
+    assert event.message == "Scheduled operation failed."
+    assert "sensitive-token" not in str(event.to_dict())
+
+
+def test_missed_jobs_have_no_replay_window(tmp_path: Path):
+    class CapturingScheduler:
+        running = False
+
+        def add_job(self, func, **kwargs):
+            self.kwargs = kwargs
+
+    scheduler = CapturingScheduler()
+    service = ScheduleService(
+        ScheduleStore(tmp_path / "server-manager.db"),
+        ServiceController(
+            _registry(tmp_path),
+            providers={ServiceType.SYSTEMD: FakeProvider()},
+        ),
+        AuditLog(tmp_path / "server-manager.db"),
+        "tester",
+        scheduler=scheduler,
+    )
+    record = service.create(
+        service_id="safe",
+        operation=Operation.START,
+        kind=ScheduleKind.DAILY,
+        hour=8,
+        minute=0,
+        enabled=False,
+    )
+
+    service._add_runtime_job(record)
+
+    assert scheduler.kwargs["misfire_grace_time"] == 1
+    assert scheduler.kwargs["coalesce"] is True

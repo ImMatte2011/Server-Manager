@@ -115,7 +115,15 @@ class DockerComposeProvider(Provider):
     def _compose(self, service: ServiceConfig, args: list[str]):
         if service.compose_file is None:
             raise ProviderCommandError("Missing compose file in service config.")
-        argv = ["docker", "compose", "-f", str(service.compose_file), *args]
+        argv = [
+            "docker",
+            "compose",
+            "-f",
+            str(service.compose_file),
+            "-p",
+            _compose_project_name(service),
+            *args,
+        ]
         cwd = str(service.project_dir) if service.project_dir else None
         return run_checked(argv, cwd=cwd)
 
@@ -163,11 +171,11 @@ def _matches_compose_container(
         return False
     working_dir = labels.get("com.docker.compose.project.working_dir")
     config_files = labels.get("com.docker.compose.project.config_files", "")
-    if project_dir and working_dir == project_dir:
-        return True
-    if compose_file and compose_file in config_files.split(","):
-        return True
-    return False
+    if project_dir and working_dir != project_dir:
+        return False
+    if compose_file and compose_file not in config_files.split(","):
+        return False
+    return bool(project_dir or compose_file)
 
 
 def _docker_cpu_percent(stats: dict) -> float:

@@ -37,6 +37,8 @@ def run_command(argv: list[str], *, cwd: str | None = None, timeout: int = 60) -
         raise ProviderCommandError("Provider command is not available.") from exc
     except subprocess.TimeoutExpired as exc:
         raise ProviderCommandError("Provider command timed out.") from exc
+    except OSError as exc:
+        raise ProviderCommandError("Provider command could not be executed.") from exc
 
     output = CommandOutput(
         stdout=completed.stdout.strip(),

@@ -11,11 +11,29 @@ def system_resources(path: str = "/") -> dict:
     virtual_memory = psutil.virtual_memory()
     disk = psutil.disk_usage(path if Path(path).exists() else "/")
     load_average = os.getloadavg() if hasattr(os, "getloadavg") else None
+    boot_time = psutil.boot_time()
+    try:
+        swap_memory = psutil.swap_memory()
+        swap = {
+            "total_bytes": swap_memory.total,
+            "used_bytes": swap_memory.used,
+            "free_bytes": swap_memory.free,
+            "percent": swap_memory.percent,
+            "note": None,
+        }
+    except (OSError, RuntimeError):
+        swap = {
+            "total_bytes": None,
+            "used_bytes": None,
+            "free_bytes": None,
+            "percent": None,
+            "note": "Swap metrics are unavailable on this system.",
+        }
     return {
         "cpu_percent": psutil.cpu_percent(interval=0.1),
         "load_average": load_average,
-        "boot_time": psutil.boot_time(),
-        "uptime_seconds": max(0, int(time.time() - psutil.boot_time())),
+        "boot_time": boot_time,
+        "uptime_seconds": max(0, int(time.time() - boot_time)),
         "memory": {
             "total_bytes": virtual_memory.total,
             "used_bytes": virtual_memory.used,
@@ -33,12 +51,7 @@ def system_resources(path: str = "/") -> dict:
             "free_bytes": disk.free,
             "percent": disk.percent,
         },
-        "swap": {
-            "total_bytes": psutil.swap_memory().total,
-            "used_bytes": psutil.swap_memory().used,
-            "free_bytes": psutil.swap_memory().free,
-            "percent": psutil.swap_memory().percent,
-        },
+        "swap": swap,
         "temperature_celsius": _temperature(),
     }
 

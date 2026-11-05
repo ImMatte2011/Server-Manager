@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import psutil
+
 from server_manager.monitoring.system import resource_summary, system_resources
 
 
@@ -24,3 +26,18 @@ def test_resource_summary_accounts_monitored_memory():
 
     assert payload["memory_accounting"]["monitored_services_bytes"] == 150
     assert payload["memory_accounting"]["unattributed_used_bytes"] >= 0
+
+
+def test_system_resources_degrades_when_swap_metrics_are_unavailable(monkeypatch):
+    monkeypatch.setattr(psutil, "swap_memory", lambda: (_ for _ in ()).throw(RuntimeError("unavailable")))
+
+    payload = system_resources()
+
+    assert payload["memory"]["total_bytes"] > 0
+    assert payload["swap"] == {
+        "total_bytes": None,
+        "used_bytes": None,
+        "free_bytes": None,
+        "percent": None,
+        "note": "Swap metrics are unavailable on this system.",
+    }

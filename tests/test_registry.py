@@ -94,6 +94,26 @@ unit = "good.service"
 
             self.assertEqual(records["__registry__"].config_status, ConfigStatus.INVALID)
 
+    def test_malformed_toml_is_reported_as_invalid_registry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory) / "services.toml"
+            config.write_text("[services.broken\nsecret = 'not-for-errors'", encoding="utf-8")
+
+            records = load_registry(config)
+
+            self.assertEqual(set(records), {"__registry__"})
+            self.assertEqual(records["__registry__"].config_status, ConfigStatus.INVALID)
+            self.assertNotIn("not-for-errors", str(records["__registry__"].errors))
+
+    def test_boolean_schema_version_is_not_treated_as_integer_one(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory) / "services.toml"
+            config.write_text("schema_version = true\n", encoding="utf-8")
+
+            records = load_registry(config)
+
+            self.assertEqual(records["__registry__"].config_status, ConfigStatus.INVALID)
+
     def test_invalid_enabled_type_is_isolated(self):
         with tempfile.TemporaryDirectory() as directory:
             tmp_path = Path(directory)

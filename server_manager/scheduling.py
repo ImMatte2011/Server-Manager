@@ -165,21 +165,25 @@ class ScheduleService:
             replace_existing=True,
             coalesce=True,
             max_instances=1,
-            misfire_grace_time=None,
+            misfire_grace_time=1,
         )
 
     def _run_schedule(self, record: ScheduleRecord) -> None:
         try:
             result = getattr(self.controller, record.operation.value)(record.service_id)
         except Exception as exc:
-            logger.warning("scheduled operation failed", exc_info=True)
+            logger.warning(
+                "scheduled operation failed: schedule_id=%s error_type=%s",
+                record.schedule_id,
+                type(exc).__name__,
+            )
             self.audit_log.record(
                 actor=self.actor,
                 source=AuditSource.SCHEDULED_JOB,
                 action=record.operation,
                 service_id=record.service_id,
                 success=False,
-                message=str(exc),
+                message="Scheduled operation failed.",
             )
             return
         self.audit_log.record(

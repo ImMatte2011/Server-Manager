@@ -28,7 +28,7 @@ python3 -m venv "${APP_DIR}/.venv"
 "${APP_DIR}/.venv/bin/python" -m pip install -e "${APP_DIR}"
 
 if [[ ! -f "${CONFIG_DIR}/server-manager.env" ]]; then
-  install -m 0600 systemd/server-manager.env.example "${CONFIG_DIR}/server-manager.env"
+  install -m 0640 systemd/server-manager.env.example "${CONFIG_DIR}/server-manager.env"
 fi
 
 if [[ ! -f "${CONFIG_DIR}/services.toml" ]]; then
@@ -36,9 +36,11 @@ if [[ ! -f "${CONFIG_DIR}/services.toml" ]]; then
 fi
 
 install -m 0644 systemd/server-manager.service /etc/systemd/system/server-manager.service
-chown -R "${USER_NAME}:${USER_NAME}" "${APP_DIR}" "${DATA_DIR}"
+chown -R root:root "${APP_DIR}"
+chown -R "${USER_NAME}:${USER_NAME}" "${DATA_DIR}"
 chown -R root:"${USER_NAME}" "${CONFIG_DIR}"
 chmod 0750 "${CONFIG_DIR}"
+chmod 0640 "${CONFIG_DIR}/server-manager.env"
 chmod 0640 "${CONFIG_DIR}/services.toml"
 
 systemctl daemon-reload
