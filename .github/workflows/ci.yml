@@ -18,5 +18,13 @@ jobs:
           python -m pip install -e ".[dev]"
       - name: Compile
         run: python -m compileall server_manager tests
+      - name: Check PWA JavaScript
+        run: |
+          node --check server_manager/web/assets/app.js
+          node --check server_manager/web/sw.js
+      - name: Build package
+        run: |
+          python -m pip wheel --no-deps --wheel-dir dist .
+          python -c "import glob, zipfile; z = zipfile.ZipFile(glob.glob('dist/*.whl')[0]); required = {'server_manager/web/index.html', 'server_manager/web/manifest.webmanifest', 'server_manager/web/sw.js', 'server_manager/web/assets/app.js', 'server_manager/web/assets/app.css', 'server_manager/web/assets/icon.svg', 'server_manager/web/assets/icon-180.png', 'server_manager/web/assets/icon-192.png', 'server_manager/web/assets/icon-512.png'}; missing = required - set(z.namelist()); assert not missing, f'Missing PWA files in wheel: {missing}'"
       - name: Test
         run: python -m pytest -q

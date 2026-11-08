@@ -2,10 +2,10 @@
 
 Server Manager is an external orchestrator for services already present on a Raspberry Pi. Managed services do not import Server Manager libraries, do not share its database, and do not expose special APIs for it.
 
-The first implementation is API-first:
+The implementation is API-first. CLI and the same-origin PWA call the same protected API:
 
 ```text
-CLI / future Web UI / scheduled job
+CLI / same-origin PWA / scheduled job
   -> FastAPI
   -> ServiceController
   -> ServiceRegistry
@@ -82,3 +82,7 @@ HTTP input
 ```
 
 The API never accepts unit names or shell commands for start, stop or restart.
+
+## PWA
+
+FastAPI serves the installable PWA and `/api` from the same origin. Browser requests use the relative API paths, same-origin fetch mode, and a bearer token held only in page memory. A restrictive CSP and a service worker that caches only static shell files reduce exposure; administrative API responses are `no-store`. In deployment, Tailscale Serve provides HTTPS to authorized tailnet devices while FastAPI remains bound to loopback. See [PWA Security](PWA_SECURITY.md).

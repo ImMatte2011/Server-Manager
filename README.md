@@ -14,7 +14,7 @@ Implemented scope:
 - structured SQLite audit log;
 - Raspberry Pi systemd deployment files.
 
-It intentionally does not include a web frontend yet.
+It includes an installable Progressive Web App (PWA) served by the same API origin. On Android and desktop it provides service controls, host/service monitoring, schedules, and recent audit events.
 
 ## Local Development
 
@@ -43,6 +43,12 @@ uvicorn server_manager.api.main:app --host 127.0.0.1 --port 8080
 ```
 
 In production, `SERVER_MANAGER_API_TOKEN` is required. Missing authentication fails closed.
+
+## PWA
+
+On the Raspberry Pi, keep the API bound to `127.0.0.1` and expose it only through Tailscale Serve over HTTPS. Open the Raspberry Pi's tailnet HTTPS address on the phone or computer, sign in with the configured bearer token, then use the browser's **Install app** / **Add to Home Screen** action.
+
+The PWA uses the API on its own origin. The token is held in memory only; it is not saved in browser storage and is cleared by locking the session, closing/reloading the page, or 15 minutes of inactivity. API responses are never cached by the service worker. Each authorized user still has full administrative API access; protect the token and limit tailnet access with Tailscale ACLs. See [PWA Security](docs/PWA_SECURITY.md).
 
 ## CLI
 
@@ -82,6 +88,8 @@ Install files are provided in:
 - `systemd/sudoers.example`
 - `scripts/install_rpi.sh`
 
+See [Raspberry Pi Setup](docs/SETUP_RPI.md) for the private HTTPS publication steps.
+
 ## Safety Model
 
 HTTP input never becomes a system command. A request such as `POST /api/services/example/start` is resolved as:
@@ -106,6 +114,8 @@ systemd units and Docker Compose paths are loaded from the registry. The API onl
 ## Tests
 
 ```bash
+node --check server_manager/web/assets/app.js
+node --check server_manager/web/sw.js
 python -m compileall server_manager tests
 python -m pytest -q
 ```

@@ -1,6 +1,6 @@
 # API
 
-All administrative endpoints require:
+The PWA is served at `/` from the same origin. Only the health check is intentionally unauthenticated; every administrative endpoint requires:
 
 ```text
 Authorization: Bearer <SERVER_MANAGER_API_TOKEN>
@@ -43,6 +43,8 @@ DELETE /api/schedules/{schedule_id}
 GET  /api/audit
 POST /api/registry/reload
 ```
+
+Administrative responses use `Cache-Control: no-store`. The PWA never caches `/api/` responses and sends the token only in the Authorization header, not in cookies or URLs. Browser CORS is not enabled.
 
 Schedule creation body:
 

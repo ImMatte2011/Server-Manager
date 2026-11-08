@@ -10,6 +10,8 @@ Recommended access model:
 - run Server Manager as a dedicated Linux user;
 - grant only the minimum required Docker/systemd permissions.
 
+The PWA is served from the API's own origin. Keep it behind HTTPS Tailscale Serve and tailnet ACLs; do not use Tailscale Funnel or expose port 8080 to the Internet. The UI keeps the bearer token in memory only, while the API remains the authorization boundary. Read [PWA Security](PWA_SECURITY.md) for session and browser details.
+
 ## Command Execution
 
 Server Manager does not expose arbitrary command execution.
@@ -25,6 +27,8 @@ Allowed operations are constrained to registered services:
 Docker Compose commands are built from the registered `compose_file`. systemd commands are built from the registered `unit`.
 
 In production, authentication fails closed when `SERVER_MANAGER_API_TOKEN` is missing or too short. Development/test environments may run without a token to simplify local work.
+
+Generate a unique high-entropy production token (for example, 32 random bytes encoded as hex), keep it in `/etc/server-manager/server-manager.env`, and rotate it if a device is lost or suspected compromised. Every bearer token currently has the same full administrative permissions.
 
 ## sudoers
 

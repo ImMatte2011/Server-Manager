@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "server-manager"
 version = "0.1.0"
@@ -27,6 +31,9 @@ pythonpath = ["."]
 
 [tool.setuptools.packages.find]
 include = ["server_manager*"]
+
+[tool.setuptools.package-data]
+server_manager = ["web/*.html", "web/*.webmanifest", "web/*.js", "web/assets/*.css", "web/assets/*.js", "web/assets/*.svg", "web/assets/*.png"]
 
 [tool.ruff]
 line-length = 100

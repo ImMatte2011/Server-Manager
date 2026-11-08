@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#f4f7f7">
+    <meta name="description" content="Gestione privata dei servizi Server Manager">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/assets/icon-180.png">
+    <link rel="stylesheet" href="/assets/app.css">
+    <title>Server Manager</title>
+  </head>
+  <body>
+    <div class="app-frame">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Server Manager, home">
+          <img src="/assets/icon.svg" alt="" width="36" height="36">
+          <span>Server Manager</span>
+        </a>
+        <div id="connection-state" class="connection-state" role="status">
+          <span class="connection-dot" aria-hidden="true"></span>
+          <span id="connection-label">Disconnesso</span>
+        </div>
+        <div id="session-actions" class="session-actions" hidden>
+          <button id="refresh-button" class="icon-button" type="button" title="Aggiorna" aria-label="Aggiorna">↻</button>
+          <button id="lock-button" class="quiet-button" type="button"><span aria-hidden="true">▣</span> Blocca</button>
+        </div>
+      </header>
+
+      <main>
+        <section id="login-view" class="login-view" aria-labelledby="login-title">
+          <div class="login-panel">
+            <div class="login-mark" aria-hidden="true"><img src="/assets/icon.svg" alt="" width="48" height="48"></div>
+            <p class="eyebrow">ACCESSO RISERVATO</p>
+            <h1 id="login-title">Accedi al server</h1>
+            <p class="muted login-copy">Usa il bearer token configurato sul Raspberry Pi.</p>
+            <div id="transport-warning" class="notice notice-warning" role="alert" hidden>
+              Connessione non sicura. Apri questa PWA tramite l’indirizzo HTTPS del tailnet.
+            </div>
+            <form id="login-form" autocomplete="off">
+              <label for="token-input">Bearer token</label>
+              <input id="token-input" name="token" type="password" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+              <button id="login-button" class="primary-button full-width" type="submit">Accedi</button>
+            </form>
+            <p id="login-message" class="login-message" role="status" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section id="dashboard-view" class="dashboard-view" hidden>
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">CONTROL PLANE</p>
+              <h1 id="view-title">Servizi</h1>
+            </div>
+            <p id="last-updated" class="muted last-updated">In attesa di aggiornamento</p>
+          </div>
+
+          <nav class="tabbar" aria-label="Sezioni">
+            <button class="tab-button is-active" type="button" data-view="services" aria-current="page">Servizi</button>
+            <button class="tab-button" type="button" data-view="schedules">Pianificazioni</button>
+            <button class="tab-button" type="button" data-view="audit">Audit</button>
+          </nav>
+
+          <div id="notice" class="app-notice" role="status" aria-live="polite" hidden></div>
+
+          <section id="services-view" class="view-panel" aria-labelledby="view-title">
+            <div class="section-heading">
+              <div>
+                <h2>Risorse host</h2>
+                <p class="muted">Metriche correnti del Raspberry Pi</p>
+              </div>
+            </div>
+            <div id="system-metrics" class="metrics-grid" aria-live="polite">
+              <div class="metric"><span>CPU</span><strong>—</strong></div>
+              <div class="metric"><span>Memoria</span><strong>—</strong></div>
+              <div class="metric"><span>Disco</span><strong>—</strong></div>
+              <div class="metric"><span>Uptime</span><strong>—</strong></div>
+            </div>
+
+            <div class="section-heading services-heading">
+              <div>
+                <h2>Servizi registrati</h2>
+                <p id="service-count" class="muted">—</p>
+              </div>
+            </div>
+            <div id="services-list" class="services-list" aria-live="polite"></div>
+          </section>
+
+          <section id="schedules-view" class="view-panel" aria-labelledby="view-title" hidden>
+            <div class="section-heading">
+              <div>
+                <h2>Nuova pianificazione</h2>
+                <p class="muted">Gli orari seguono il fuso locale del Raspberry Pi.</p>
+              </div>
+            </div>
+            <form id="schedule-form" class="schedule-form">
+              <label>Servizio<select id="schedule-service" name="service_id" required></select></label>
+              <label>Operazione<select name="operation" required>
+                <option value="start">Avvia</option>
+                <option value="stop">Arresta</option>
+                <option value="restart">Riavvia</option>
+              </select></label>
+              <label>Frequenza<select id="schedule-kind" name="kind" required>
+                <option value="daily">Ogni giorno</option>
+                <option value="weekly">Settimanale</option>
+              </select></label>
+              <label>Ora<input name="time" type="time" value="08:00" required></label>
+              <fieldset id="weekday-field" class="weekday-field" hidden>
+                <legend>Giorni</legend>
+                <div class="weekday-options">
+                  <label><input type="checkbox" name="weekday" value="mon"><span>Lun</span></label>
+                  <label><input type="checkbox" name="weekday" value="tue"><span>Mar</span></label>
+                  <label><input type="checkbox" name="weekday" value="wed"><span>Mer</span></label>
+                  <label><input type="checkbox" name="weekday" value="thu"><span>Gio</span></label>
+                  <label><input type="checkbox" name="weekday" value="fri"><span>Ven</span></label>
+                  <label><input type="checkbox" name="weekday" value="sat"><span>Sab</span></label>
+                  <label><input type="checkbox" name="weekday" value="sun"><span>Dom</span></label>
+                </div>
+              </fieldset>
+              <button class="primary-button schedule-submit" type="submit">Crea pianificazione</button>
+            </form>
+
+            <div class="section-heading schedule-list-heading">
+              <div><h2>Pianificazioni attive</h2><p class="muted">Persistono anche dopo il riavvio del servizio.</p></div>
+            </div>
+            <div id="schedules-list" class="schedules-list"></div>
+          </section>
+
+          <section id="audit-view" class="view-panel" aria-labelledby="view-title" hidden>
+            <div class="section-heading">
+              <div><h2>Attività recenti</h2><p class="muted">Ultimi eventi registrati dal server</p></div>
+            </div>
+            <div id="audit-list" class="audit-list"></div>
+          </section>
+        </section>
+      </main>
+
+      <footer id="app-footer" class="app-footer" hidden>
+        <span>Sessione temporanea</span>
+        <span>Blocco automatico dopo 15 minuti di inattività</span>
+      </footer>
+    </div>
+
+    <dialog id="confirm-dialog" class="confirm-dialog">
+      <form method="dialog" class="confirm-form">
+        <p class="eyebrow">CONFERMA OPERAZIONE</p>
+        <h2 id="confirm-title">Confermi?</h2>
+        <p id="confirm-copy" class="muted"></p>
+        <div class="dialog-actions">
+          <button class="quiet-button" value="cancel">Annulla</button>
+          <button id="confirm-action" class="danger-button" value="confirm">Conferma</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>
